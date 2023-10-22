@@ -5,7 +5,7 @@ import torch
 class ActorCriticNetwork(nn.Module):
     def __init__(self, obs_space_size, action_space_size):
         super().__init__()
-        # print(obs_space_size, action_space_size)
+        # Action Space Size = 6, Obsvervation Space Size = 210*64
 
         self.shared_layers = nn.Sequential(
             nn.Linear(210*160, 64),
@@ -14,11 +14,18 @@ class ActorCriticNetwork(nn.Module):
             nn.ReLU()
         )
 
+        # Restrict Action Space to 2 Actions (RIGHT, LEFT)
         self.policy_layers = nn.Sequential(
             nn.Linear(64, 64),
             nn.ReLU(),
-            nn.Linear(64, 6)
+            nn.Linear(64, 2)
         )
+
+        # self.policy_layers = nn.Sequential(
+        #     nn.Linear(64, 64),
+        #     nn.ReLU(),
+        #     nn.Linear(64, 6)
+        # )
 
         self.value_layers = nn.Sequential(
             nn.Linear(64, 64),
