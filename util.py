@@ -1,27 +1,19 @@
 import numpy as np
+import torch
 
-GAMMA = 0.99
-DECAY = 0.97
 
-def discount_rewards(rewards, gamma=GAMMA):
+def preprocess_img(image, bkg_color=np.array([144, 72, 17])):
+    img = np.mean(image[34:-16:2, ::2] - bkg_color, axis=-1) / 255.
+    return img
+
+def obs_to_nn_shape(obs):
     """
-    Return discounted rewards based on the given rewards and gamma param.
+    :param obs: Tensor of observations
+    :return: Compatible tensor with NN
     """
-    new_rewards = [float(rewards[-1])]
-    for i in reversed(range(len(rewards)-1)):
-        new_rewards.append(float(rewards[i]) + gamma * new_rewards[-1])
-    return np.array(new_rewards[::-1])
+    obs = [torch.from_numpy(obs_array) for obs_array in obs]
+    obs = torch.stack(obs)
+    policy_input = obs.view(-1, *obs.shape[-1:])
+    # print(policy_input.shape)
+    return policy_input
 
-def calculate_gaes(rewards, values, gamma=GAMMA, decay=DECAY):
-    """
-    Return the General Advantage Estimates from the given rewards and values.
-    Paper: https://arxiv.org/pdf/1506.02438.pdf
-    """
-    next_values = np.concatenate([values[1:], [0]])
-    deltas = [rew + gamma * next_val - val for rew, val, next_val in zip(rewards, values, next_values)]
-
-    gaes = [deltas[-1]]
-    for i in reversed(range(len(deltas)-1)):
-        gaes.append(deltas[i] + decay * gamma * gaes[-1])
-
-    return np.array(gaes[::-1])

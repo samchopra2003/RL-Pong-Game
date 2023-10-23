@@ -3,6 +3,8 @@ import torch
 from torch import optim
 from torch.distributions.categorical import Categorical
 
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 PPO_CLIP_VAL = 0.2
 TARGET_KL_DIV = 0.01
 MAX_POLICY_TRAIN_ITERS = 40
@@ -37,18 +39,35 @@ class PPOTrainer:
 
     def train_policy(self, obs, actions, old_log_probs, gaes):
         """
-        :param obs: observations
+        :param new_logits: new_logits mapped to observations
         :param actions: actions
         :param old_log_probs: old log probabilities
-        :param gaes: General Advantgae Estimation
+        :param gaes: General Advantgae Estimations
         :return:
         """
         for _ in range(self.max_policy_train_iters):
             self.policy_optim.zero_grad()  # reset gradient
 
+            # new_logits = []
+            # for i in range(len(obs)):
+            #     cur_obs = torch.tensor([obs[i]], dtype=torch.float32, device=DEVICE)
+            #     new_logits.append(self.ac.policy(obs))
+
+            # new_logits = self.ac.policy(torch.tensor([obs], dtype=torch.float32, device=DEVICE))
+
+            # new_logits = self.ac.policy(obs[0].unsqueeze(0))
             new_logits = self.ac.policy(obs)
             new_logits = Categorical(logits=new_logits)
             new_log_probs = new_logits.log_prob(actions)
+
+            # print(new_logits)
+
+            # new_log_probs = []
+            # for i in range(len(new_logits)):
+            #     cur_logits = Categorical(logits=new_logits[i])
+            #     new_log_probs.append(cur_logits.log_prob(actions[i]))
+
+            # new_log_probs = torch.stack(new_log_probs)
 
             policy_ratio = torch.exp(new_log_probs - old_log_probs)
             clipped_ratio = policy_ratio.clamp(1 - self.ppo_clip_val, 1 + self.ppo_clip_val)
