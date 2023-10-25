@@ -7,8 +7,8 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 PPO_CLIP_VAL = 0.2
 TARGET_KL_DIV = 0.01
-MAX_POLICY_TRAIN_ITERS = 40
-VALUE_TRAIN_ITERS = 40
+MAX_POLICY_TRAIN_ITERS = 5
+VALUE_TRAIN_ITERS = 5
 POLICY_LR = 3e-4
 VALUE_LR = 1e-3
 
@@ -37,12 +37,13 @@ class PPOTrainer:
                        list(self.ac.policy_layers.parameters())
         self.value_optim = optim.Adam(value_params, lr=value_lr)
 
-    def train_policy(self, obs, actions, old_log_probs, gaes):
+    def train_policy(self, obs, actions, old_log_probs, gaes, beta=0.01):
         """
         :param new_logits: new_logits mapped to observations
         :param actions: actions
         :param old_log_probs: old log probabilities
         :param gaes: General Advantgae Estimations
+        :param beta: Coefficient for entropy (exploration)
         :return:
         """
         for _ in range(self.max_policy_train_iters):
@@ -74,7 +75,17 @@ class PPOTrainer:
 
             clipped_loss = clipped_ratio * gaes
             full_loss = policy_ratio * gaes
-            policy_loss = -torch.min(full_loss, clipped_loss).mean()  # negative to turn this to a loss
+
+            old_probs = torch.exp(old_log_probs)
+            new_probs = torch.exp(new_log_probs)
+            # include a regularization term
+            # this steers new_policy towards 0.5
+            # add in 1.e-10 to avoid log(0) which gives nan
+            entropy = -(new_probs * torch.log(old_probs + 1.e-10) +
+                        (1.0 - new_probs) * torch.log(1.0 - old_probs + 1.e-10))
+            # negative to turn this to loss
+            # policy_loss = (-torch.min(full_loss, clipped_loss)).mean()
+            policy_loss = (-(torch.min(full_loss, clipped_loss) + beta * entropy)).mean()
 
             policy_loss.backward()
             self.policy_optim.step()

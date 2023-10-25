@@ -13,8 +13,9 @@ from util import preprocess_img, obs_to_nn_shape
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 ENVIRONMENT = "ALE/Pong-v5"
+# ENVIRONMENT = "PongDeterministic-v4"
 # ENVIRONMENT = "ALE/Pong-ram-v5"
-EPISODES = 30
+EPISODES = 200
 LOGGING_FREQ = 5
 
 NOOP = 0
@@ -22,7 +23,7 @@ RIGHT = 2
 LEFT = 3
 
 
-def rollout(model, env, max_steps=1000, n_rand=10):
+def rollout(model, env, max_steps=1000, n_rand=5):
     """
     :param n_rand: number of random actions at the start
     :param model: ActorCriticNetwork
@@ -41,6 +42,8 @@ def rollout(model, env, max_steps=1000, n_rand=10):
 
     for i in range(max_steps):
         preprocessed_img = []
+        val = 0
+        action_log_prob = []
         # if i == 0:
         #     print(obs[0].shape)
         # else:
@@ -107,14 +110,17 @@ def rollout(model, env, max_steps=1000, n_rand=10):
 
 
 if __name__ == '__main__':
-    env = gym.make(ENVIRONMENT, render_mode="human")
-    # env = gym.make(ENVIRONMENT)
+    # env = gym.make(ENVIRONMENT, render_mode="human")
+    env = gym.make(ENVIRONMENT)
     # print(env.observation_space.shape, env.action_space.n)
     model = ActorCriticNetwork(env.observation_space.shape[0], env.action_space.n)
     model = model.to(DEVICE)
     # train_data, reward = rollout(model, env)
     # print(train_data, reward)
     ppo_trainer = PPOTrainer(model)
+
+    # Hyperparameters
+    beta = 0.01
 
     # Training Loop
     episode_rewards = []
@@ -170,8 +176,11 @@ if __name__ == '__main__':
         # POLICY + VALUE training (train model)
         # ppo_trainer.train_policy(new_logits, actions, action_log_probs, gaes)
         # ppo_trainer.train_value(new_vals, returns)
-        ppo_trainer.train_policy(obs.unsqueeze(1), actions, action_log_probs, gaes)
+        ppo_trainer.train_policy(obs.unsqueeze(1), actions, action_log_probs, gaes, beta=beta)
         ppo_trainer.train_value(obs.unsqueeze(1), returns)
+
+        # this reduces exploration in later runs
+        beta *= 0.995
 
         if (episode_idx + 1) % LOGGING_FREQ == 0:
             print('Episode {} | Avg. Rewards {:.1f}'.format(
