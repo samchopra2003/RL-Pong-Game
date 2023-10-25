@@ -19,7 +19,7 @@ class ActorCriticNetwork(nn.Module):
 
         # two fully connected layers
         self.fc1 = nn.Linear(self.size, 256)
-        self.fc2 = nn.Linear(256, 2)
+        self.fc2 = nn.Linear(256, 3)
 
         self.shared_layers = nn.Sequential(
             self.conv1,

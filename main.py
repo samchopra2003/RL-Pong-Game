@@ -5,6 +5,7 @@ from torch import optim
 from torch.distributions.categorical import Categorical
 import numpy as np
 import cv2
+import matplotlib.pyplot as plt
 
 from ActorCriticNetwork import ActorCriticNetwork
 from PPOTrainer import PPOTrainer
@@ -55,11 +56,10 @@ def rollout(model, env, max_steps=1000, n_rand=5):
             action = np.random.choice([RIGHT, LEFT])
             og_action = 0 if RIGHT else 1
         else:
-            # gray_frame = cv2.cvtColor(obs[0], cv2.COLOR_BGR2GRAY)
-            # gray_frame_flattened = gray_frame.reshape(-1)
-            # print(obs.shape)
             preprocessed_img = preprocess_img(obs)
-            # print(i, preprocessed_img.shape)
+            # plt.imshow(preprocessed_img, cmap='Greys')
+            # plt.title('preprocessed image')
+            # plt.show()
 
             logits, val = model(torch.tensor([preprocessed_img], dtype=torch.float32, device=DEVICE))
             # logits, val = model(torch.tensor([obs[0]], dtype=torch.float32, device=DEVICE))
@@ -73,15 +73,18 @@ def rollout(model, env, max_steps=1000, n_rand=5):
             action, val = action.item(), val.item()
 
             og_action = action
-            # convert action from Action Space of size 2 to RIGHT, LEFT
+            # convert action from Action Space of size 3 to RIGHT, LEFT, NOOP
             if action == 0:
                 action = RIGHT
-            else:
+            elif action == 1:
                 action = LEFT
+            else:
+                action = NOOP
             # print(action)
 
         next_obs, reward, terminated, truncated, info = env.step(action)
-        env.step(NOOP)  # stop moving (NOOP)
+        if action != NOOP:
+            _, _, terminated, truncated, _ = env.step(NOOP)  # stop moving (NOOP)
 
         action = og_action
 
