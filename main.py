@@ -2,6 +2,7 @@ import gymnasium as gym
 
 import torch
 from torch.distributions.categorical import Categorical
+from torch.optim.lr_scheduler import StepLR
 import numpy as np
 
 from ActorCriticNetwork import ActorCriticNetwork
@@ -13,8 +14,8 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 ENVIRONMENT = "ALE/Pong-v5"
 # ENVIRONMENT = "PongDeterministic-v4"
 # ENVIRONMENT = "ALE/Pong-ram-v5"
-EPISODES = 1000
-LOGGING_FREQ = 5
+EPISODES = 10000
+LOGGING_FREQ = 20
 
 NOOP = 0
 RIGHT = 2
@@ -94,6 +95,9 @@ def rollout(model, env, max_steps=1000, n_rand=5):
 
 
 if __name__ == '__main__':
+    # Load the pre-trained policy parameters
+    # model = torch.load('PPO_pong.pkl')
+
     # env = gym.make(ENVIRONMENT, render_mode="human")
     env = gym.make(ENVIRONMENT)
     # print(env.observation_space.shape, env.action_space.n)
@@ -103,7 +107,11 @@ if __name__ == '__main__':
 
     # Hyperparameters
     beta = 0.01
-    epsilon = 0.2
+    epsilon = 0.1
+    alpha = .999
+
+    step_size = 10
+    scheduler = StepLR(ppo_trainer.policy_optim, step_size=step_size, gamma=alpha)
 
     # Training Loop
     episode_rewards = []
@@ -127,14 +135,21 @@ if __name__ == '__main__':
         ppo_trainer.train_value(obs.unsqueeze(1), returns)
 
         # this reduces exploration in later runs
-        beta *= .995
+        # beta *= .995
         # the clipping parameter reduces as time goes on
-        # epsilon *= .999
+        if (episode_idx + 1) % step_size == 0:
+            epsilon *= alpha
+
+        # linearly anneal the ADAM step-size
+        scheduler.step()
 
         if (episode_idx + 1) % LOGGING_FREQ == 0:
             print('Episode {} | Avg. Rewards {:.1f}'.format(
                 episode_idx + 1, np.mean(episode_rewards[-LOGGING_FREQ:])
             ))
 
-    # save policy
-    torch.save(model, 'PPO_pong.pkl')
+        # save policy
+        if (episode_idx + 1) % 1000 == 0:
+            torch.save(model, 'PPO.policy')
+
+    torch.save(model, 'PPO_final.policy')

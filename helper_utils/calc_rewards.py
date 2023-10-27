@@ -1,7 +1,7 @@
 import numpy as np
 
 GAMMA = 0.99
-DECAY = 0.97
+DECAY = 0.95
 
 def discount_rewards(rewards, gamma=GAMMA):
     """
