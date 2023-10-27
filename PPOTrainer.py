@@ -7,10 +7,10 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 PPO_CLIP_VAL = 0.2
 TARGET_KL_DIV = 0.01
-MAX_POLICY_TRAIN_ITERS = 3
-VALUE_TRAIN_ITERS = 3
+MAX_POLICY_TRAIN_ITERS = 5
+VALUE_TRAIN_ITERS = 5
 POLICY_LR = 2.5e-4
-VALUE_LR = 1e-3
+VALUE_LR = 2.5e-4
 BETA = 0.01
 
 

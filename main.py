@@ -15,7 +15,7 @@ ENVIRONMENT = "ALE/Pong-v5"
 # ENVIRONMENT = "PongDeterministic-v4"
 # ENVIRONMENT = "ALE/Pong-ram-v5"
 EPISODES = 10000
-LOGGING_FREQ = 20
+LOGGING_FREQ = 10
 
 NOOP = 0
 RIGHT = 2
@@ -96,12 +96,12 @@ def rollout(model, env, max_steps=1000, n_rand=5):
 
 if __name__ == '__main__':
     # Load the pre-trained policy parameters
-    # model = torch.load('PPO_pong.pkl')
+    model = torch.load('PPO_pong.pkl')
 
     # env = gym.make(ENVIRONMENT, render_mode="human")
     env = gym.make(ENVIRONMENT)
     # print(env.observation_space.shape, env.action_space.n)
-    model = ActorCriticNetwork(env.observation_space.shape[0], env.action_space.n)
+    # model = ActorCriticNetwork(env.observation_space.shape[0], env.action_space.n)
     model = model.to(DEVICE)
     ppo_trainer = PPOTrainer(model)
 
@@ -135,7 +135,7 @@ if __name__ == '__main__':
         ppo_trainer.train_value(obs.unsqueeze(1), returns)
 
         # this reduces exploration in later runs
-        # beta *= .995
+        beta *= .995
         # the clipping parameter reduces as time goes on
         if (episode_idx + 1) % step_size == 0:
             epsilon *= alpha
