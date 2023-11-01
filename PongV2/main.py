@@ -11,7 +11,7 @@ from PPOTrainer import PPOTrainer
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 EPISODES = 2000
 LOGGING_FREQ = 10
-ENV_NAME = 'PongDeterministic-v4'
+ENV_NAME = "ALE/Pong-v5"
 
 widget = ['training loop: ', pb.Percentage(), ' ',
           pb.Bar(), ' ', pb.ETA()]
@@ -31,6 +31,7 @@ if __name__ == "__main__":
     mean_rewards = []
 
     policy = PolicyNetwork().to(DEVICE)
+    # policy = torch.load('PPO_deterministic.policy').to(DEVICE)
     ppoTrainer = PPOTrainer(policy)
 
     # clear previous contents
@@ -72,8 +73,8 @@ if __name__ == "__main__":
         timer.update(episode_idx + 1)
         # save policy
         if (episode_idx + 1) % 500 == 0:
-            torch.save(policy, 'PPO_deterministic.policy')
+            torch.save(policy, 'PPO_stochastic.policy')
 
-    torch.save(policy, 'PPO_deterministic_final.policy')
+    torch.save(policy, 'PPO_stochastic_final.policy')
 
     timer.finish()
