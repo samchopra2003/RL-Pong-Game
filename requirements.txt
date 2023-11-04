@@ -48,12 +48,6 @@ rsa==4.9
 Shimmy==0.2.1
 six==1.16.0
 sympy==1.12
-tensorboard==2.14.1
-tensorboard-data-server==0.7.1
-tensorflow==2.14.0
-tensorflow-estimator==2.14.0
-tensorflow-intel==2.14.0
-tensorflow-io-gcs-filesystem==0.31.0
 termcolor==2.3.0
 torch==2.1.0+cu118
 torchaudio==2.1.0+cu118
