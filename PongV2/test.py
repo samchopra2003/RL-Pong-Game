@@ -8,6 +8,7 @@ NOOP = 0
 RIGHTFIRE = 4
 LEFTFIRE = 5
 
+
 def play(env, policy, time=2000, preprocess=None, nrand=5):
     env.reset()
 
@@ -44,11 +45,11 @@ def play(env, policy, time=2000, preprocess=None, nrand=5):
     return
 
 
-# policy = torch.load('PPO_deterministic.policy')
-# env = gym.make('PongDeterministic-v4', render_mode="human")
+policy = torch.load('PPO_deterministic.policy')
+env = gym.make('PongDeterministic-v4', render_mode="human")
 
-policy = torch.load('PPO_stochastic.policy')
-env = gym.make("ALE/Pong-v5", render_mode="human")
+# policy = torch.load('PPO_stochastic_1.policy')
+# env = gym.make("ALE/Pong-v5", render_mode="human")
 
 with torch.no_grad():
     play(env, policy, time=2000)

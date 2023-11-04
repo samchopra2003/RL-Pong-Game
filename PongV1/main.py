@@ -18,8 +18,8 @@ EPISODES = 10000
 LOGGING_FREQ = 10
 
 NOOP = 0
-RIGHT = 2
-LEFT = 3
+RIGHTFIRE = 4
+LEFTFIRE = 5
 
 
 def rollout(model, env, max_steps=1000, n_rand=5):
@@ -31,42 +31,46 @@ def rollout(model, env, max_steps=1000, n_rand=5):
     :return: Training data in the shape (n_steps, obs_shape), reward, observation data
     """
     train_data = [[], [], [], [], []]  # obs, actions, rewards, values, action_log_probs
-    obs_data = []
-    obs = env.reset()
+    # obs_data = []
+    env.reset()
     # print(env.action_space)
     # print(env.observation_space)
     episode_reward = 0
+    for i in range(n_rand):
+        action = np.random.choice([RIGHTFIRE, LEFTFIRE])
+        obs, _, _, _, _ = env.step(action)
 
     for i in range(max_steps):
-        preprocessed_img = []
-        val = 0
-        action_log_prob = []
+        # preprocessed_img = []
+        # val = 0
+        # action_log_prob = []
 
         # take nrand actions at the start
-        if i < n_rand:
-            action = np.random.choice([RIGHT, LEFT])
-            og_action = 0 if RIGHT else 1
+        # if i < n_rand:
+        #     action = np.random.choice([RIGHTFIRE, LEFTFIRE])
+        #     og_action = 0 if RIGHTFIRE else 1
+        # else:
+        preprocessed_img = preprocess_img(obs)
+        # plt.imshow(preprocessed_img, cmap='Greys')
+        # plt.title('preprocessed image')
+        # plt.show()
+
+        logits, val = model(torch.tensor([preprocessed_img], dtype=torch.float32, device=DEVICE))
+        action_distribution = Categorical(logits=logits)
+        action = action_distribution.sample()
+        action_log_prob = action_distribution.log_prob(action).item()
+        action, val = action.item(), val.item()
+
+        og_action = action
+        # convert action from Action Space of size 3 to RIGHT, LEFT, NOOP
+        if action == 0:
+            action = RIGHTFIRE
+        # elif action == 1:
+        #     action = LEFTFIRE
         else:
-            preprocessed_img = preprocess_img(obs)
-            # plt.imshow(preprocessed_img, cmap='Greys')
-            # plt.title('preprocessed image')
-            # plt.show()
-
-            logits, val = model(torch.tensor([preprocessed_img], dtype=torch.float32, device=DEVICE))
-            action_distribution = Categorical(logits=logits)
-            action = action_distribution.sample()
-            action_log_prob = action_distribution.log_prob(action).item()
-            action, val = action.item(), val.item()
-
-            og_action = action
-            # convert action from Action Space of size 3 to RIGHT, LEFT, NOOP
-            if action == 0:
-                action = RIGHT
-            elif action == 1:
-                action = LEFT
-            else:
-                action = NOOP
-            # print(action)
+            action = LEFTFIRE
+            # action = NOOP
+        # print(action)
 
         next_obs, reward, terminated, truncated, info = env.step(action)
         if action != NOOP:
@@ -74,34 +78,42 @@ def rollout(model, env, max_steps=1000, n_rand=5):
 
         action = og_action
 
-        if terminated or truncated:
-            break
-
         obs = next_obs
         episode_reward += reward
 
-        if i >= n_rand:
-            for i, item in enumerate((preprocessed_img, action, reward, val, action_log_prob)):
-                train_data[i].append(item)
-            # gray_frame = cv2.cvtColor(obs, cv2.COLOR_BGR2GRAY)
-            obs_data.append(preprocessed_img)
+        # if i >= n_rand:
+        for i, item in enumerate((preprocessed_img, action, reward, val, action_log_prob)):
+            train_data[i].append(item)
+        # obs_data.append(preprocessed_img)
+
+        if terminated or truncated:
+            break
+
+        # obs = next_obs
+        # episode_reward += reward
+
+        # if i >= n_rand:
+        #     for i, item in enumerate((preprocessed_img, action, reward, val, action_log_prob)):
+        #         train_data[i].append(item)
+        #     # gray_frame = cv2.cvtColor(obs, cv2.COLOR_BGR2GRAY)
+        #     obs_data.append(preprocessed_img)
 
     train_data = [np.asarray(x) for x in train_data]
 
     # obtain advantage estimates using rewards and values
     train_data[3] = calculate_gaes(train_data[2], train_data[3])
 
-    return train_data, episode_reward, obs_data
+    return train_data, episode_reward
 
 
 if __name__ == '__main__':
     # Load the pre-trained policy parameters
-    model = torch.load('PPO_pong.pkl')
+    # model = torch.load('PPO_pong.pkl')
 
     # env = gym.make(ENVIRONMENT, render_mode="human")
     env = gym.make(ENVIRONMENT)
     # print(env.observation_space.shape, env.action_space.n)
-    # model = ActorCriticNetwork(env.observation_space.shape[0], env.action_space.n)
+    model = ActorCriticNetwork(env.observation_space.shape[0], env.action_space.n)
     model = model.to(DEVICE)
     ppo_trainer = PPOTrainer(model)
 
@@ -116,7 +128,7 @@ if __name__ == '__main__':
     # Training Loop
     episode_rewards = []
     for episode_idx in range(EPISODES):
-        train_data, reward, obs_data = rollout(model, env)
+        train_data, reward = rollout(model, env)
         episode_rewards.append(reward)
 
         permute_idxs = np.random.permutation(len(train_data[0]))

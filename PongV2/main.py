@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import progressbar as pb
+from torch.optim.lr_scheduler import StepLR
 
 from parallelEnv import parallelEnv
 from collect_rollouts import collect_rollouts
@@ -31,8 +32,12 @@ if __name__ == "__main__":
     mean_rewards = []
 
     policy = PolicyNetwork().to(DEVICE)
-    # policy = torch.load('PPO_deterministic.policy').to(DEVICE)
+    # policy = torch.load('PPO_stochastic.policy').to(DEVICE)
     ppoTrainer = PPOTrainer(policy)
+
+    step_size = 8
+    alpha = 0.999
+    scheduler = StepLR(ppoTrainer.policy_optim, step_size=step_size, gamma=alpha)
 
     # clear previous contents
     with open(reward_file, 'w'):
@@ -51,11 +56,14 @@ if __name__ == "__main__":
         ppoTrainer.train_policy(old_probs, states, actions, rewards, epsilon=epsilon, beta=beta)
 
         # the clipping parameter reduces as time goes on
-        epsilon *= .999
+        if (episode_idx + 1) % step_size == 0:
+            epsilon *= alpha
 
         # the regulation term also reduces
         # this reduces exploration in later runs
-        beta *= .995
+        beta *= 0.995
+
+        scheduler.step()
 
         # get the average reward of the parallel environments
         mean_rewards.append(np.mean(total_rewards))
@@ -73,7 +81,7 @@ if __name__ == "__main__":
         timer.update(episode_idx + 1)
         # save policy
         if (episode_idx + 1) % 500 == 0:
-            torch.save(policy, 'PPO_stochastic.policy')
+            torch.save(policy, 'PPO_stochastic_1.policy')
 
     torch.save(policy, 'PPO_stochastic_final.policy')
 

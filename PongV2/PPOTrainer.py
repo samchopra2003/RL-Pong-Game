@@ -29,12 +29,11 @@ class PPOTrainer:
 
         self.policy_optim = optim.Adam(policy_net.parameters(), lr=policy_lr)
 
-    def train_policy(self, old_probs, states, actions, rewards, discount=0.995, epsilon=0.1, beta=0.01):
+    def train_policy(self, old_probs, states, actions, rewards, discount=0.99, epsilon=0.1, beta=0.01):
         for _ in range(self.max_policy_train_iters):
             self.policy_optim.zero_grad()  # reset gradient
 
             cur_discount = discount ** np.arange(len(rewards))
-            # print(type(discount), type(rewards))
             cur_rewards = np.array(rewards)
             cur_rewards = cur_rewards * cur_discount[:, np.newaxis]
 
@@ -77,4 +76,6 @@ class PPOTrainer:
             policy_loss.backward()
             self.policy_optim.step()
 
-            # TODO: KL DIVERGENCE > self.target_kl_div
+            kl_div = (torch.log(cur_old_probs + 1.e-10) - torch.log(new_probs + 1.e-10)).mean()
+            if kl_div >= self.target_kl_div:
+                break

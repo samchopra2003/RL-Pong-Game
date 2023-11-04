@@ -5,10 +5,10 @@ from torch.distributions.categorical import Categorical
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-PPO_CLIP_VAL = 0.2
+PPO_CLIP_VAL = 0.1
 TARGET_KL_DIV = 0.01
-MAX_POLICY_TRAIN_ITERS = 5
-VALUE_TRAIN_ITERS = 5
+MAX_POLICY_TRAIN_ITERS = 4
+VALUE_TRAIN_ITERS = 4
 POLICY_LR = 2.5e-4
 VALUE_LR = 2.5e-4
 BETA = 0.01

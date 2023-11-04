@@ -14,7 +14,7 @@ LEFT = 3
 
 # Load the pre-trained policy parameters
 # policy = torch.load('../PPO_pong.pkl')
-policy = torch.load('../PPO.policy')
+policy = torch.load('PPO.policy')
 
 def test_model(model, env, max_steps=1000, n_rand=5):
     """
