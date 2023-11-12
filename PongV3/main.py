@@ -13,16 +13,16 @@ LOGGING_FREQ = 8
 NRAND = 5
 reward_file = './rewards.txt'
 
-COMPUTER_DIFFICULTY = 0.88
+COMPUTER_DIFFICULTY = 0.75
 DX = 0.1
-DZ = -0.3
+DZ = -0.5
 
 
 def update():
     global dx, dz, score_A, score_B
     ball_speed_inc = 1.05
     computer_diff = COMPUTER_DIFFICULTY
-
+    # global paddle_A, paddle_B
     # computer player
     computer_paddle_speed = abs(computer_diff * dx)
     if paddle_B.x < ball.x:
@@ -34,8 +34,10 @@ def update():
 
     global rollout_iter
     if rollout_iter < NRAND:
-        action = np.random.choice([0, 1, 2])
+        action = np.random.choice([0, 1])
     else:
+        if (rollout_iter - NRAND) == 0:
+            paddle_A.x = 0
         # image preprocessing
         dr = base.camNode.getDisplayRegion(0)
         tex = dr.getScreenshot()
@@ -45,9 +47,10 @@ def update():
         img = img[::-1]
         img = cv2.cvtColor(img, cv2.COLOR_RGBA2GRAY)
         downsampled_img = img
-        for _ in range(3):
+        for _ in range(2):
             downsampled_img = cv2.pyrDown(downsampled_img)
-        trimmed_image = downsampled_img[40:-20, 40:-40]
+        trimmed_image = downsampled_img[80:-60, 110:-110]
+        trimmed_image[trimmed_image > 100] = 255
         # cv2.imshow('img', trimmed_image)
         # print(downsampled_img.shape)
 
@@ -55,8 +58,12 @@ def update():
 
         # probs = policy(torch.tensor([trimmed_image], dtype=torch.float32, device=DEVICE)) \
         #     .squeeze().cpu().detach().item()
-        probs = policy(trimmed_image).squeeze().cpu().detach().item()
+        global policy
+        probs = policy(trimmed_image).cpu().detach().item()
+        # probs = policy(trimmed_image).cpu().detach().numpy()
+        # print("prob = ", probs)
         action = np.where(np.random.rand(1) < probs, 0, 1)[0]
+        # action = np.argmax(probs).item()
         # print("action = ", action)
 
         global ep_states, ep_actions, ep_old_probs
@@ -65,14 +72,17 @@ def update():
         ep_states.append(trimmed_image)
 
     # AI player
-    if action == 0:
+    if (rollout_iter - NRAND) % 2 == 1:
+        # print("NOOP")
+        pass
+    elif action == 0:
+        # print("RIGHT")
         if paddle_A.x < 0.36:
-            paddle_A.x = paddle_A.x + computer_paddle_speed * time.dt
-            # print("RIGHT")
-    else:
+            paddle_A.x = paddle_A.x + 1.0 * time.dt
+    elif action == 1:
+        # print("LEFT")
         if paddle_A.x > -0.36:
-            paddle_A.x = paddle_A.x - computer_paddle_speed * time.dt
-            # print("LEFT")
+            paddle_A.x = paddle_A.x - 1.0 * time.dt
 
     ball.x = ball.x + time.dt * dx
     ball.z = ball.z + time.dt * dz
@@ -104,6 +114,7 @@ def update():
 def reset():
     ball.x = 0
     ball.z = 0
+    # paddle_A.x = 0
 
     global dx, dz
     dx = DX
@@ -139,6 +150,7 @@ if __name__ == "__main__":
 
     # PPO policy parameters
     policy = PolicyNetwork().to(DEVICE)
+    # policy = torch.load('PPO_3d.policy')
 
     ppo_trainer = PPOTrainer(policy)
 
@@ -147,7 +159,7 @@ if __name__ == "__main__":
     scheduler = StepLR(ppo_trainer.policy_optim, step_size=step_size, gamma=alpha)
 
     # training hyperparameters
-    tmax = 2000
+    tmax = 1800
     discount_rate = .99
     epsilon = .1
     beta = .01
@@ -166,9 +178,11 @@ if __name__ == "__main__":
         ep_states = []
         ep_actions = []
         ep_old_probs = []
+        # reset env
         score_A = 0
         score_B = 0
-
+        paddle_A.x = 0
+        paddle_B.x = 0
         rollout_iter = 0
         # perform rollout
         for _ in range(tmax):
@@ -215,9 +229,7 @@ if __name__ == "__main__":
                 file.write(str(rewards[-1]) + '\n')
 
         # save policy
-        if (episode_idx + 1) % 500 == 0:
+        if (episode_idx + 1) % LOGGING_FREQ == 0:
             torch.save(policy, 'PPO_3d.policy')
 
     torch.save(policy, 'PPO_3d_final.policy')
-
-

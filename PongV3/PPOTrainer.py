@@ -12,8 +12,8 @@ MAX_POLICY_TRAIN_ITERS = 4
 POLICY_LR = 2.5e-4
 BETA = 0.01
 
-RIGHTFIRE = 4
-LEFTFIRE = 5
+RIGHTFIRE = 0
+LEFTFIRE = 1
 
 
 class PPOTrainer:
@@ -47,8 +47,8 @@ class PPOTrainer:
 
             # convert everything into pytorch tensors and move to gpu if available
             cur_actions = torch.tensor(actions, dtype=torch.int8, device=DEVICE)
-            cur_old_probs = torch.tensor(old_probs, dtype=torch.float, device=DEVICE)
-            cur_rewards = torch.tensor(rewards_normalized, dtype=torch.float, device=DEVICE)
+            cur_old_probs = torch.tensor(old_probs, dtype=torch.float32, device=DEVICE)
+            cur_rewards = torch.tensor(rewards_normalized, dtype=torch.float32, device=DEVICE)
 
             # convert states to policy (or probability)
             new_probs = states_to_prob(self.policy_net, states)
