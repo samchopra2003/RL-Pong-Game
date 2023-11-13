@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import torch
 from torch.optim.lr_scheduler import StepLR
+import torch.nn as nn
 from ursina import *
 
 from PPOTrainer import PPOTrainer
@@ -13,23 +14,26 @@ LOGGING_FREQ = 8
 NRAND = 5
 reward_file = './rewards.txt'
 
-COMPUTER_DIFFICULTY = 0.85
+COMPUTER_DIFFICULTY = 0.8
 DX = 0.2
 DZ = -0.8
+
+RIGHTFIRE = 0
+LEFTFIRE = 1
 
 
 def update():
     global dx, dz, score_A, score_B
-    ball_speed_inc = 1.05
+    ball_speed_inc = 1.2
     computer_diff = COMPUTER_DIFFICULTY
     # global paddle_A, paddle_B
     # computer player
     computer_paddle_speed = abs(computer_diff * dx)
     if paddle_B.x < ball.x:
-        if paddle_B.x < 0.36:
+        if (paddle_B.x + computer_paddle_speed * time.dt) < 0.36:
             paddle_B.x = paddle_B.x + computer_paddle_speed * time.dt
     else:
-        if paddle_B.x > -0.36:
+        if (paddle_B.x - computer_paddle_speed * time.dt) > -0.36:
             paddle_B.x = paddle_B.x - computer_paddle_speed * time.dt
 
     global rollout_iter
@@ -46,6 +50,7 @@ def update():
         img = img.reshape((tex.getYSize(), tex.getXSize(), 4))
         img = img[::-1]
         img = cv2.cvtColor(img, cv2.COLOR_RGBA2GRAY)
+        # img = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
         downsampled_img = img
         for _ in range(2):
             downsampled_img = cv2.pyrDown(downsampled_img)
@@ -53,18 +58,25 @@ def update():
         trimmed_image[trimmed_image > 100] = 255
         condition = (trimmed_image > 20) & (trimmed_image < 40)
         trimmed_image[condition] = 125
+        # # print(trimmed_image.shape)
+        # trimmed_image = np.swapaxes(trimmed_image, 0, -1)
+        # trimmed_image = np.swapaxes(trimmed_image, 1, -1)
+        # print(trimmed_image.shape)
+        # img = cv2.resize(img, (80, 80))
         # cv2.imshow('img', trimmed_image)
+        # cv2.waitKey(0)
         # print(downsampled_img.shape)
 
         trimmed_image = torch.tensor([trimmed_image], dtype=torch.float32, device=DEVICE)
 
         # probs = policy(torch.tensor([trimmed_image], dtype=torch.float32, device=DEVICE)) \
         #     .squeeze().cpu().detach().item()
-        global policy
+        # global policy
         probs = policy(trimmed_image).cpu().detach().item()
         # probs = policy(trimmed_image).cpu().detach().numpy()
+        action = np.where(np.random.rand(1) < probs, RIGHTFIRE, LEFTFIRE)[0]
+        probs = np.where(action == RIGHTFIRE, probs, 1.0 - probs).item()
         print("prob = ", probs)
-        action = np.where(np.random.rand(1) < probs, 0, 1)[0]
         # action = np.argmax(probs).item()
         # print("action = ", action)
 
@@ -74,14 +86,14 @@ def update():
         ep_states.append(trimmed_image)
 
     # AI player
-    if (rollout_iter - NRAND) % 2 == 1:
-        # print("NOOP")
-        pass
-    elif action == 0:
+    # if (rollout_iter - NRAND) % 2 == 1:
+    #     # print("NOOP")
+    #     pass
+    if action == RIGHTFIRE:
         # print("RIGHT")
         if (paddle_A.x + 1.0 * time.dt) < 0.36:
             paddle_A.x = paddle_A.x + 1.0 * time.dt
-    elif action == 1:
+    elif action == LEFTFIRE:
         # print("LEFT")
         if (paddle_A.x - 1.0 * time.dt) > -0.36:
             paddle_A.x = paddle_A.x - 1.0 * time.dt
@@ -109,8 +121,14 @@ def update():
     hit_info = ball.intersects()
     if hit_info.hit:
         if hit_info.entity == paddle_A or hit_info.entity == paddle_B:
-            dz = -dz * np.random.choice([1.0, ball_speed_inc])
-            dx = dx * np.random.choice([1.0, ball_speed_inc])
+            if abs(dz) > 0.4:
+                dz = -dz * np.random.choice([0.8, 1, ball_speed_inc])
+            else:
+                dz = -dz * np.random.choice([1, ball_speed_inc])
+            if abs(dx) > 0.05:
+                dx = dx * np.random.choice([0.8, 1, ball_speed_inc])
+            else:
+                dx = dx * np.random.choice([1, ball_speed_inc])
 
 
 def reset(winner):
@@ -119,7 +137,8 @@ def reset(winner):
     paddle_B.x = 0
 
     global dx, dz
-    dx = DX * np.random.choice([-1, 1])
+    # dx = DX * np.random.choice([-1, 1])
+    dx = DX
     if winner == 'A':
         dz = DZ
     else:
@@ -127,8 +146,8 @@ def reset(winner):
 
 
 if __name__ == "__main__":
-    app = Ursina(window_type='offscreen')
-    # app = Ursina()
+    # app = Ursina(window_type='offscreen')
+    app = Ursina()
     window.color = color.orange
 
     table = Entity(model='cube', color=color.green, scale=(10, 0.5, 14),
@@ -156,10 +175,16 @@ if __name__ == "__main__":
     # PPO policy parameters
     policy = PolicyNetwork().to(DEVICE)
     # policy = torch.load('PPO_3d.policy')
+    torch.manual_seed(1)
+    nn.init.xavier_uniform_(policy.conv1.weight)
+    nn.init.xavier_uniform_(policy.conv2.weight)
+    nn.init.xavier_uniform_(policy.conv3.weight)
+    # nn.init.xavier_uniform_(policy.fc1.weight)
+    # nn.init.xavier_uniform_(policy.fc2.weight)
 
     ppo_trainer = PPOTrainer(policy)
 
-    step_size = 8
+    step_size = 16
     alpha = 0.999
     scheduler = StepLR(ppo_trainer.policy_optim, step_size=step_size, gamma=alpha)
 
@@ -196,9 +221,9 @@ if __name__ == "__main__":
             # print(f"Score: {score_A}: {score_B}")
             app.step()
 
-            if score_A != prev_score_A:
+            if score_A - prev_score_A == 1:
                 ep_rewards.append(1)
-            elif score_B != prev_score_B:
+            elif score_B - prev_score_B == 1:
                 ep_rewards.append(-1)
             else:
                 ep_rewards.append(0)
@@ -220,7 +245,7 @@ if __name__ == "__main__":
 
         # the regulation term also reduces
         # this reduces exploration in later runs
-        beta *= 0.995
+        # beta *= 0.995
 
         scheduler.step()
 

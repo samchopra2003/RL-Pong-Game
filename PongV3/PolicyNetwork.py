@@ -10,7 +10,6 @@ class PolicyNetwork(nn.Module):
         self.conv1 = nn.Conv2d(1, 4, kernel_size=6, stride=2, bias=False)
         self.conv2 = nn.Conv2d(4, 16, kernel_size=6, stride=4)
         self.conv3 = nn.Conv2d(16, 32, kernel_size=6, stride=6)
-        # self.size = 21 * 35 * 16
         self.size = 3 * 5 * 32
 
         # two fully connected layer
