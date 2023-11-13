@@ -41,6 +41,8 @@ def update():
         downsampled_img = cv2.pyrDown(downsampled_img)
     trimmed_image = downsampled_img[80:-60, 110:-110]
     trimmed_image[trimmed_image > 100] = 255
+    condition = (trimmed_image > 20) & (trimmed_image < 40)
+    trimmed_image[condition] = 125
     # cv2.imshow('img', trimmed_image)
     # print(downsampled_img.shape)
 

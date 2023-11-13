@@ -13,9 +13,9 @@ LOGGING_FREQ = 8
 NRAND = 5
 reward_file = './rewards.txt'
 
-COMPUTER_DIFFICULTY = 0.75
-DX = 0.1
-DZ = -0.5
+COMPUTER_DIFFICULTY = 0.85
+DX = 0.2
+DZ = -0.8
 
 
 def update():
@@ -51,6 +51,8 @@ def update():
             downsampled_img = cv2.pyrDown(downsampled_img)
         trimmed_image = downsampled_img[80:-60, 110:-110]
         trimmed_image[trimmed_image > 100] = 255
+        condition = (trimmed_image > 20) & (trimmed_image < 40)
+        trimmed_image[condition] = 125
         # cv2.imshow('img', trimmed_image)
         # print(downsampled_img.shape)
 
@@ -61,7 +63,7 @@ def update():
         global policy
         probs = policy(trimmed_image).cpu().detach().item()
         # probs = policy(trimmed_image).cpu().detach().numpy()
-        # print("prob = ", probs)
+        print("prob = ", probs)
         action = np.where(np.random.rand(1) < probs, 0, 1)[0]
         # action = np.argmax(probs).item()
         # print("action = ", action)
@@ -77,11 +79,11 @@ def update():
         pass
     elif action == 0:
         # print("RIGHT")
-        if paddle_A.x < 0.36:
+        if (paddle_A.x + 1.0 * time.dt) < 0.36:
             paddle_A.x = paddle_A.x + 1.0 * time.dt
     elif action == 1:
         # print("LEFT")
-        if paddle_A.x > -0.36:
+        if (paddle_A.x - 1.0 * time.dt) > -0.36:
             paddle_A.x = paddle_A.x - 1.0 * time.dt
 
     ball.x = ball.x + time.dt * dx
@@ -96,29 +98,32 @@ def update():
     if ball.z > 0.25:
         score_B += 1
         print_on_screen(f"Player A : Player B = {score_A} : {score_B}", position=(-0.85, .45), scale=2, duration=0.5)
-        reset()
+        reset('B')
 
     if ball.z < -0.65:
         score_A += 1
         print_on_screen(f"Player A : Player B = {score_A} : {score_B}", position=(-0.85, .45), scale=2, duration=0.5)
-        reset()
+        reset('A')
 
     # Collisions
     hit_info = ball.intersects()
     if hit_info.hit:
         if hit_info.entity == paddle_A or hit_info.entity == paddle_B:
-            dz = -dz * ball_speed_inc
-            dx *= ball_speed_inc
+            dz = -dz * np.random.choice([1.0, ball_speed_inc])
+            dx = dx * np.random.choice([1.0, ball_speed_inc])
 
 
-def reset():
+def reset(winner):
     ball.x = 0
-    ball.z = 0
-    # paddle_A.x = 0
+    ball.z = -0.3
+    paddle_B.x = 0
 
     global dx, dz
-    dx = DX
-    dz = DZ
+    dx = DX * np.random.choice([-1, 1])
+    if winner == 'A':
+        dz = DZ
+    else:
+        dz = -DZ
 
 
 if __name__ == "__main__":
@@ -129,7 +134,7 @@ if __name__ == "__main__":
     table = Entity(model='cube', color=color.green, scale=(10, 0.5, 14),
                    position=(0, 0, 0), texture="white_cube")
 
-    paddle_A = Entity(parent=table, color=color.black, model='cube', scale=(0.15, 0.03, 0.05),
+    paddle_A = Entity(parent=table, color=color.black, model='cube', scale=(0.1, 0.03, 0.05),
                       position=(0, 3.7, 0.22), collider='box')
     paddle_B = duplicate(paddle_A, z=-0.62)
 
@@ -159,7 +164,7 @@ if __name__ == "__main__":
     scheduler = StepLR(ppo_trainer.policy_optim, step_size=step_size, gamma=alpha)
 
     # training hyperparameters
-    tmax = 1800
+    tmax = 1200
     discount_rate = .99
     epsilon = .1
     beta = .01
