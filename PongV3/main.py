@@ -63,7 +63,7 @@ def update():
         # trimmed_image = np.swapaxes(trimmed_image, 1, -1)
         # print(trimmed_image.shape)
         # img = cv2.resize(img, (80, 80))
-        # cv2.imshow('img', trimmed_image)
+        cv2.imshow('img', trimmed_image)
         # cv2.waitKey(0)
         # print(downsampled_img.shape)
 
@@ -86,10 +86,10 @@ def update():
         ep_states.append(trimmed_image)
 
     # AI player
-    # if (rollout_iter - NRAND) % 2 == 1:
-    #     # print("NOOP")
-    #     pass
-    if action == RIGHTFIRE:
+    if (rollout_iter - NRAND) % 2 == 1:
+        # print("NOOP")
+        pass
+    elif action == RIGHTFIRE:
         # print("RIGHT")
         if (paddle_A.x + 1.0 * time.dt) < 0.36:
             paddle_A.x = paddle_A.x + 1.0 * time.dt
@@ -177,8 +177,8 @@ if __name__ == "__main__":
     # policy = torch.load('PPO_3d.policy')
     torch.manual_seed(1)
     nn.init.xavier_uniform_(policy.conv1.weight)
-    nn.init.xavier_uniform_(policy.conv2.weight)
-    nn.init.xavier_uniform_(policy.conv3.weight)
+    # nn.init.xavier_uniform_(policy.conv2.weight)
+    # nn.init.xavier_uniform_(policy.conv3.weight)
     # nn.init.xavier_uniform_(policy.fc1.weight)
     # nn.init.xavier_uniform_(policy.fc2.weight)
 
@@ -214,6 +214,7 @@ if __name__ == "__main__":
         paddle_A.x = 0
         paddle_B.x = 0
         rollout_iter = 0
+        # reset('A')
         # perform rollout
         for _ in range(tmax):
             prev_score_A = score_A
@@ -245,7 +246,7 @@ if __name__ == "__main__":
 
         # the regulation term also reduces
         # this reduces exploration in later runs
-        # beta *= 0.995
+        beta *= 0.995
 
         scheduler.step()
 

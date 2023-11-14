@@ -58,7 +58,11 @@ def update():
     print("prob = ", probs)
 
     # AI player
-    if action == 0:
+    global sim_iter
+    if sim_iter % 2 == 1:
+        # print("NOOP")
+        pass
+    elif action == 0:
         # print("RIGHT")
         if (paddle_A.x + 1.0 * time.dt) < 0.36:
             paddle_A.x = paddle_A.x + 1.0 * time.dt
@@ -144,12 +148,12 @@ if __name__ == "__main__":
 
     policy = torch.load('PPO_3d.policy')
 
-    i = 0
+    sim_iter = 0
     while True:
         with torch.no_grad():
             app.step()
-            print(f"Step = {i}")
-            i += 1
+            print(f"Step = {sim_iter}")
+            sim_iter += 1
             if score_A == 11 or score_B == 11:
                 paddle_A.x = 0
                 score_A = 0

@@ -9,8 +9,8 @@ class PolicyNetwork(nn.Module):
         super(PolicyNetwork, self).__init__()
         self.conv1 = nn.Conv2d(1, 4, kernel_size=6, stride=2, bias=False)
         self.conv2 = nn.Conv2d(4, 16, kernel_size=6, stride=4)
-        self.conv3 = nn.Conv2d(16, 32, kernel_size=6, stride=6)
-        self.size = 3 * 5 * 32
+        self.conv3 = nn.Conv2d(16, 16, kernel_size=6, stride=2)
+        self.size = 8 * 15 * 16
 
         # two fully connected layer
         self.fc1 = nn.Linear(self.size, 256)
@@ -26,6 +26,7 @@ class PolicyNetwork(nn.Module):
         x = F.relu(self.conv2(x))
         # print("Output of conv2: ", x.shape)
         x = F.relu(self.conv3(x))
+        # print("Output of conv3: ", x.shape)
         x = x.view(-1, self.size)
         # print("Input to fc1: ", x.shape)
         x = F.relu(self.fc1(x))
