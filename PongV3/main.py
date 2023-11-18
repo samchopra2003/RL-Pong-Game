@@ -40,8 +40,8 @@ def update():
     if rollout_iter < NRAND:
         action = np.random.choice([0, 1])
     else:
-        if (rollout_iter - NRAND) == 0:
-            paddle_A.x = 0
+        # if (rollout_iter - NRAND) == 0:
+        #     paddle_A.x = 0
         # image preprocessing
         dr = base.camNode.getDisplayRegion(0)
         tex = dr.getScreenshot()
@@ -86,10 +86,10 @@ def update():
         ep_states.append(trimmed_image)
 
     # AI player
-    if (rollout_iter - NRAND) % 2 == 1:
-        # print("NOOP")
-        pass
-    elif action == RIGHTFIRE:
+    # if (rollout_iter - NRAND) % 2 == 1:
+    #     # print("NOOP")
+    #     pass
+    if action == RIGHTFIRE:
         # print("RIGHT")
         if (paddle_A.x + 1.0 * time.dt) < 0.36:
             paddle_A.x = paddle_A.x + 1.0 * time.dt
@@ -120,6 +120,18 @@ def update():
     # Collisions
     hit_info = ball.intersects()
     if hit_info.hit:
+        global last_hit
+        if hit_info.entity == paddle_A and last_hit == 'A':
+            score_B += 1
+            print_on_screen(f"Player A : Player B = {score_A} : {score_B}", position=(-0.85, .45), scale=2,
+                            duration=0.5)
+            reset('B')
+        elif hit_info.entity == paddle_B and last_hit == 'B':
+            score_A += 1
+            print_on_screen(f"Player A : Player B = {score_A} : {score_B}", position=(-0.85, .45), scale=2,
+                            duration=0.5)
+            reset('A')
+
         if hit_info.entity == paddle_A or hit_info.entity == paddle_B:
             if abs(dz) > 0.4:
                 dz = -dz * np.random.choice([0.8, 1, ball_speed_inc])
@@ -129,6 +141,11 @@ def update():
                 dx = dx * np.random.choice([0.8, 1, ball_speed_inc])
             else:
                 dx = dx * np.random.choice([1, ball_speed_inc])
+
+            if hit_info.entity == paddle_A:
+                last_hit = 'A'
+            else:
+                last_hit = 'B'
 
 
 def reset(winner):
@@ -144,6 +161,21 @@ def reset(winner):
     else:
         dz = -DZ
 
+    global last_hit
+    last_hit = ''
+
+
+def restart():
+    ball.x = 0
+    ball.z = 0
+
+    global dx, dz
+    dx = DX
+    dz = DZ
+
+    global last_hit
+    last_hit = ''
+
 
 if __name__ == "__main__":
     # app = Ursina(window_type='offscreen')
@@ -155,7 +187,7 @@ if __name__ == "__main__":
 
     paddle_A = Entity(parent=table, color=color.black, model='cube', scale=(0.1, 0.03, 0.05),
                       position=(0, 3.7, 0.22), collider='box')
-    paddle_B = duplicate(paddle_A, z=-0.62)
+    paddle_B = duplicate(paddle_A, color=color.dark_gray, z=-0.62)
 
     Text(text="Player A", scale=2, position=(-0.1, 0.32))
     Text(text="Player B", scale=2, position=(-0.1, -0.4))
@@ -185,7 +217,7 @@ if __name__ == "__main__":
     ppo_trainer = PPOTrainer(policy)
 
     step_size = 16
-    alpha = 0.999
+    alpha = 0.995
     scheduler = StepLR(ppo_trainer.policy_optim, step_size=step_size, gamma=alpha)
 
     # training hyperparameters
@@ -200,6 +232,7 @@ if __name__ == "__main__":
     with open(reward_file, 'w'):
         pass
 
+    last_hit = ''
     rollout_iter = 0
     # training loop
     for episode_idx in range(EPISODES):
@@ -214,7 +247,7 @@ if __name__ == "__main__":
         paddle_A.x = 0
         paddle_B.x = 0
         rollout_iter = 0
-        # reset('A')
+        restart()
         # perform rollout
         for _ in range(tmax):
             prev_score_A = score_A
@@ -232,6 +265,7 @@ if __name__ == "__main__":
             rollout_iter += 1
             if score_A == 11 or score_B == 11 or rollout_iter == tmax:
                 # final score
+                print("reward = ", np.sum(ep_rewards))
                 rewards.append(score_A - score_B)
                 break
 
@@ -244,9 +278,9 @@ if __name__ == "__main__":
         if (episode_idx + 1) % step_size == 0:
             epsilon *= alpha
 
-        # the regulation term also reduces
-        # this reduces exploration in later runs
-        beta *= 0.995
+            # the regulation term also reduces
+            # this reduces exploration in later runs
+            beta *= alpha
 
         scheduler.step()
 
